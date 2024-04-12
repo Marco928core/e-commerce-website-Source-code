@@ -1,6 +1,7 @@
 "use client";
 import { CustomButton, DashboardSidebar, SectionTitle } from "@/components";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -12,11 +13,23 @@ const DashboardProductDetails = ({
   params: { id },
 }: DashboardProductDetailsProps) => {
   const [product, setProduct] = useState<any>();
-  
+  const router = useRouter();
+
+  const deleteProduct = async () => {
+    const requestOptions = {
+      method: "DELETE",
+    };
+    fetch(`http://localhost:3001/api/products/${id}`, requestOptions).then(
+      (response) => {
+        toast.success("Product deleted successfully");
+        router.push("/admin/products");
+      }
+    );
+  };
 
   const updateProduct = async () => {
     console.log(product);
-    
+
     const requestOptions = {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -59,9 +72,10 @@ const DashboardProductDetails = ({
   }, [id]);
 
   return (
-    <div className="bg-white flex justify-start max-w-screen-2xl mx-auto h-[100vh]">
+    <div className="bg-white flex justify-start max-w-screen-2xl mx-auto h-[120vh]">
       <DashboardSidebar />
       <div className="flex flex-col gap-y-7 ml-5 w-full">
+        <h1 className="text-3xl font-semibold">Product details</h1>
         <div>
           <label className="form-control w-full max-w-xs">
             <div className="label">
@@ -112,7 +126,13 @@ const DashboardProductDetails = ({
             <div className="label">
               <span className="label-text">Is product in stock?</span>
             </div>
-            <select className="select select-bordered" value={product?.inStock} onChange={(e) => setProduct({...product, inStock: Number(e.target.value)})}>
+            <select
+              className="select select-bordered"
+              value={product?.inStock}
+              onChange={(e) =>
+                setProduct({ ...product, inStock: Number(e.target.value) })
+              }
+            >
               <option value={1}>Yes</option>
               <option value={0}>No</option>
             </select>
@@ -127,13 +147,15 @@ const DashboardProductDetails = ({
               setProduct({ ...product, mainImage: e.target.files[0].name });
             }}
           />
-          {product?.mainImage && <Image
-            src={`/` + product?.mainImage}
-            alt={product?.title}
-            className="w-auto h-auto"
-            width={100}
-            height={100}
-          />}
+          {product?.mainImage && (
+            <Image
+              src={`/` + product?.mainImage}
+              alt={product?.title}
+              className="w-auto h-auto"
+              width={100}
+              height={100}
+            />
+          )}
         </div>
         <div>
           <label className="form-control">
@@ -160,6 +182,7 @@ const DashboardProductDetails = ({
           <button
             type="button"
             className="uppercase bg-red-600 px-10 py-5 text-lg border border-black border-gray-300 font-bold text-white shadow-sm hover:bg-red-700 hover:text-white focus:outline-none focus:ring-2"
+            onClick={deleteProduct}
           >
             Delete product
           </button>
