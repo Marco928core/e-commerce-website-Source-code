@@ -20,7 +20,7 @@ const DashboardUsers = () => {
   return (
     <div className="bg-white flex justify-start max-w-screen-2xl mx-auto h-[100vh] max-xl:flex-col max-xl:h-fit max-xl:gap-y-4">
       <DashboardSidebar />
-      <div className="xl:ml-5 w-full max-xl:mt-5">
+      <div className="w-full">
         <h1 className="text-3xl font-semibold text-center mb-5">All users</h1>
         <div className="flex justify-end mb-5">
           <Link href="/admin/users/new">
@@ -34,7 +34,7 @@ const DashboardUsers = () => {
             />
           </Link>
         </div>
-        <div className="overflow-x-auto">
+        <div className="xl:ml-5 w-full max-xl:mt-5 overflow-auto w-full h-[80vh]">
           <table className="table table-md table-pin-cols">
             {/* head */}
             <thead>
@@ -66,7 +66,7 @@ const DashboardUsers = () => {
                       </div>
                     </td>
                     <td>
-                      <p>{ user?.role }</p>
+                      <p>{user?.role}</p>
                     </td>
                     <th>
                       <Link
