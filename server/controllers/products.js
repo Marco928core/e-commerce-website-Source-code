@@ -6,8 +6,8 @@ async function getAllProducts(request, response) {
   let filterObj = {};
   let sortObj = {};
   let sortByValue = "defaultSort";
+
   if (dividerLocation !== -1) {
-    // queryArray sada sadrzi ceo query deo sto ukljucuje filter i sort queryije
     const queryArray = request.url
       .substring(dividerLocation + 1, request.url.length)
       .split("&");
@@ -44,18 +44,15 @@ async function getAllProducts(request, response) {
         queryArray[i].indexOf("filters") !== -1 &&
         queryArray[i].indexOf("category") !== -1
       ) {
-        // uzimam "category" deo. Naravno mogao sam samo da napisem filterType="rating"
-        filterType = queryArray[i].substring(
-          queryArray[i].indexOf("category"),
-          queryArray[i].indexOf("category") + "category".length
-        );
+        // uzimam "category" deo. Naravno mogao sam samo da napisem filterType="category"
+        filterType = "category";
       }
 
       if (
         queryArray[i].indexOf("filters") !== -1 &&
         queryArray[i].indexOf("inStock") !== -1
       ) {
-        // uzimam "rating" deo. Naravno mogao sam samo da napisem filterType="rating"
+        // uzimam "inStock" deo. Naravno mogao sam samo da napisem filterType="inStock"
         filterType = queryArray[i].substring(
           queryArray[i].indexOf("inStock"),
           queryArray[i].indexOf("inStock") + "inStock".length
@@ -66,7 +63,7 @@ async function getAllProducts(request, response) {
         queryArray[i].indexOf("filters") !== -1 &&
         queryArray[i].indexOf("outOfStock") !== -1
       ) {
-        // uzimam "rating" deo. Naravno mogao sam samo da napisem filterType="rating"
+        // uzimam "outOfStock" deo. Naravno mogao sam samo da napisem filterType="outOfStock"
         filterType = queryArray[i].substring(
           queryArray[i].indexOf("outOfStock"),
           queryArray[i].indexOf("outOfStock") + "outOfStock".length
@@ -115,58 +112,111 @@ async function getAllProducts(request, response) {
         filterArray.push({ filterType, filterOperator, filterValue });
       }
     }
-
-    for (let item in filterArray) {
+    for (let item of filterArray) {
       filterObj = {
         ...filterObj,
-        [filterArray[item].filterType + ""]: {
-          [filterArray[item].filterOperator]: filterArray[item].filterValue,
+        [item.filterType]: {
+          [item.filterOperator]: item.filterValue,
         },
       };
     }
   }
 
-  if (sortByValue === "defaultSort") {
-    sortObj = [];
-  } else if (sortByValue === "titleAsc") {
-    sortObj = [
-      {
-        title: "asc",
-      },
-    ];
-  } else if (sortByValue === "titleDesc") {
-    sortObj = [
-      {
-        title: "desc",
-      },
-    ];
-  } else if (sortByValue === "lowPrice") {
-    sortObj = [
-      {
-        price: "asc",
-      },
-    ];
-  } else if (sortByValue === "highPrice") {
-    sortObj = [
-      {
-        price: "desc",
-      },
-    ];
+  let whereClause = { ...filterObj }; // Include other filters if any
+
+  // Remove category filter from whereClause and use it separately
+  if (filterObj.category && filterObj.category.equals) {
+    delete whereClause.category; // Remove category filter from whereClause
   }
 
-  let users;
-  if (Object.keys(filterObj).length === 0) {
-    users = await prisma.product.findMany({});
-  } else {
-    users =
-      (await prisma.product.findMany) <
-      object >
-      {
-        where: filterObj,
-        orderBy: sortObj,
-      };
+  if (sortByValue === "defaultSort") {
+    sortObj = {};
+  } else if (sortByValue === "titleAsc") {
+    sortObj = {
+      title: "asc",
+    };
+  } else if (sortByValue === "titleDesc") {
+    sortObj = {
+      title: "desc",
+    };
+  } else if (sortByValue === "lowPrice") {
+    sortObj = {
+      price: "asc",
+    };
+  } else if (sortByValue === "highPrice") {
+    sortObj = {
+      price: "desc",
+    };
   }
-  return response.json(users);
+
+  let products;
+
+  if (Object.keys(filterObj).length === 0) {
+    products = await prisma.product.findMany({
+      include: {
+        category: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: sortObj,
+    });
+  } else {
+    // Check if category filter is present
+    if (filterObj.category && filterObj.category.equals) {
+      products = await prisma.product.findMany({
+        include: {
+          category: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        where: {
+          ...whereClause,
+          category: {
+            name: {
+              equals: filterObj.category.equals,
+            },
+          },
+        },
+        orderBy: sortObj,
+      });
+    } else {
+      // If no category filter, use whereClause
+      products = await prisma.product.findMany({
+        include: {
+          category: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        where: whereClause,
+        orderBy: sortObj,
+      });
+    }
+  }
+
+  return response.json(products);
+}
+
+async function getAllProductsOld(request, response) {
+  try {
+    const products = await prisma.product.findMany({
+      include: {
+        category: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+    response.status(200).json(products);
+  } catch (error) {
+    console.log(error);
+  }
 }
 
 async function createProduct(request, response) {
@@ -179,7 +229,7 @@ async function createProduct(request, response) {
       price,
       description,
       manufacturer,
-      category,
+      categoryId,
       inStock,
     } = request.body;
     const product = await prisma.product.create({
@@ -191,7 +241,7 @@ async function createProduct(request, response) {
         rating: 5,
         description,
         manufacturer,
-        category,
+        categoryId,
         inStock,
       },
     });
@@ -215,7 +265,7 @@ async function updateProduct(request, response) {
       rating,
       description,
       manufacturer,
-      category,
+      categoryId,
       inStock,
     } = request.body;
     // Pronalazimo proizvod prema slug-u
@@ -229,18 +279,6 @@ async function updateProduct(request, response) {
       return response.status(404).json({ error: "Product not found" });
     }
 
-    console.log(
-      id,
-      title,
-      mainImage,
-      price,
-      rating,
-      description,
-      manufacturer,
-      category,
-      inStock
-    );
-
     // Ažuriramo pronađeni proizvod
     const updatedProduct = await prisma.product.update({
       where: {
@@ -249,11 +287,12 @@ async function updateProduct(request, response) {
       data: {
         title: title,
         mainImage: mainImage,
+        slug: slug,
         price: price,
         rating: rating,
         description: description,
         manufacturer: manufacturer,
-        category: category,
+        categoryId: categoryId,
         inStock: inStock,
       },
     });
@@ -318,6 +357,9 @@ async function getProductById(request, response) {
   const product = await prisma.product.findUnique({
     where: {
       id: id,
+    },
+    include: {
+      category: true,
     },
   });
   console.log(product);
